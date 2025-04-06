@@ -1,3 +1,5 @@
+###Add these lines to configuration.yaml and change it to correspond to your mqtt broker (usually host is home assistant ip address and if its not you likely know what to do already)
+
 sony_address="receiver"
 sony_port_status=50001
 sony_port_control=8080
