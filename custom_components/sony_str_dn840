@@ -1,0 +1,16 @@
+{
+  "domain": "sony_str_dn840",
+  "name": "Sony STR-DN840 Controller",
+  "version": "0.1.0",
+  "documentation": "https://github.com/totalboss3/Sony-STR-DN840-Remote-Python-hacs-integration",
+  "requirements": [
+    "certifi==2019.3.9",
+    "chardet==3.0.4",
+    "idna==2.8",
+    "paho-mqtt==1.4.0",
+    "requests==2.21.0",
+    "urllib3==1.26.5"
+  ],
+  "dependencies": [],
+  "codeowners": []
+}
