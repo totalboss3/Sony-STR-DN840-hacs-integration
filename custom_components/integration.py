@@ -1,166 +1,86 @@
-import requests
-import time
-import urllib.parse
+import logging
+import voluptuous as vol
+from homeassistant.helpers import config_validation as cv
+from .controller import SonySTRDN840Controller
 
-class SonySTRDN840Controller:
-    def __init__(self, host, port_status=80, port_control=80,
-                 myid="default_id", mydevinfo="default_devinfo",
-                 myuseragent="HomeAssistant", alternative=None,
-                 myname="SonyReceiver", max_vol=20):
-        self.host = host
-        self.port_status = port_status
-        self.port_control = port_control
-        self.myid = myid
-        self.mydevinfo = mydevinfo
-        self.myuseragent = myuseragent
-        self.alternative = alternative if alternative else {}
-        self.myname = myname
-        self.max_vol = max_vol
-        self.inputs = ["BD", "DVD", "GAME", "SAT/CATV", "VIDEO", "TV",
-                       "SA-CD/CD", "FM TUNER", "AM TUNER", "USB", "HOME NETWORK", "SEN"]
-        self.commands = {
-            "str_powermain":    "AAAAAgAAADAAAAAVAQ==",
-            "mute":             "AAAAAgAAADAAAAAUAQ==",
-            "muteon":           "AAAAAwAADRAAAAAgAQ==",
-            "muteoff":          "AAAAAwAADRAAAAAhAQ==",
-            "confirm":          "AAAAAgAAADAAAAAMAQ==",
-            "home":             "AAAAAgAAADAAAABTAQ==",
-            "display":          "AAAAAgAAADAAAABLAQ==",
-            "return":           "AAAAAwAAARAAAAB9AQ==",
-            "options":          "AAAAAwAAARAAAABzAQ==",
-            "str_functionplus": "AAAAAgAAALAAAABpAQ==",
-            "str_functionminus":"AAAAAgAAALAAAABqAQ==",
-            "play":             "AAAAAwAAARAAAAAyAQ==",
-            "pause":            "AAAAAwAAARAAAAA5AQ==",
-            "stop":             "AAAAAwAAARAAAAA4AQ==",
-            "next":             "AAAAAwAAARAAAAAxAQ==",
-            "prev":             "AAAAAwAAARAAAAAwAQ==",
-            "str_shuffle":      "AAAAAwAAARAAAAAqAQ==",
-            "str_repeat":       "AAAAAwAAARAAAAAsAQ==",
-            "str_ff":           "AAAAAwAAARAAAAA0AQ==",
-            "str_fr":           "AAAAAwAAARAAAAAzAQ==",
-            "volumeup":         "AAAAAgAAADAAAAASAQ==",
-            "volumedown":       "AAAAAgAAADAAAAATAQ==",
-            "up":               "AAAAAgAAALAAAAB4AQ==",
-            "down":             "AAAAAgAAALAAAAB5AQ==",
-            "left":             "AAAAAgAAALAAAAB6AQ==",
-            "right":            "AAAAAgAAALAAAAB7AQ==",
-            "str_num1":         "AAAAAgAAADAAAAAAAQ==",
-            "str_num2":         "AAAAAgAAADAAAAABAQ==",
-            "str_num3":         "AAAAAgAAADAAAAACAQ==",
-            "str_num4":         "AAAAAgAAADAAAAADAQ==",
-            "str_num5":         "AAAAAgAAADAAAAAEAQ==",
-            "str_num6":         "AAAAAgAAADAAAAAFAQ==",
-            "str_num7":         "AAAAAgAAADAAAAAGAQ==",
-            "str_num8":         "AAAAAgAAADAAAAAHAQ==",
-            "str_num9":         "AAAAAgAAADAAAAAIAQ==",
-            "str_num0":         "AAAAAgAAADAAAAAJAQ==",
-            "str_puredirect":   "AAAAAwAABRAAAAB5AQ=="
-        }
-        
-    def get_current_input(self, alternativeNames=False):
-        url = f"http://{self.host}:{self.port_status}/cers/getStatus"
-        headers = {
-            'X-CERS-DEVICE-ID': self.myid,
-            'X-CERS-DEVICE-INFO': self.mydevinfo,
-            'Connection': 'close',
-            'User-Agent': self.myuseragent,
-            'Host': f'{self.host}:{self.port_status}',
-            'Accept-Encoding': 'gzip'
-        }
-        try:
-            r = requests.get(url, headers=headers, timeout=0.75)
-        except:
-            return "offline"
-        try:
-            source = r.text.split("=")[3].split("\"")[1]
-            if not alternativeNames:
-                return source
-            else:
-                return self.alternative[source] if source in self.alternative else source
-        except IndexError:
-            return "error"
+_LOGGER = logging.getLogger(__name__)
+DOMAIN = "sony_str_dn840"
 
-    def send_command(self, key, repeat=1):
-        if key.lower() == "power":
-            key = "str_powermain"
-        if key.lower() not in self.commands:
-            return f"Keycode for {key} not found."
-        keycode = self.commands[key.lower()]
-        url = f"http://{self.host}:{self.port_control}/upnp/control/IRCC"
-        headers = {
-            'soapaction': '"urn:schemas-sony-com:service:IRCC:1#X_SendIRCC"',
-            'content-type': 'text/xml; charset=utf-8',
-            'Connection': 'close',
-            'User-Agent': self.myuseragent,
-            'Host': f'{self.host}:{self.port_control}',
-            'Accept-Encoding': 'gzip'
-        }
-        payload = "<?xml version=\"1.0\"?>"
-        payload += "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"
-        payload += "<s:Body> <u:X_SendIRCC xmlns:u=\"urn:schemas-sony-com:service:IRCC:1\"> <IRCCCode>" + keycode + "==</IRCCCode>"
-        payload += "</u:X_SendIRCC> </s:Body> </s:Envelope>"
-        for _ in range(int(repeat)):
-            try:
-                requests.post(url, headers=headers, data=payload, timeout=5)
-            except:
-                pass
-            time.sleep(0.5)
-        return "Command sent"
+CONFIG_SCHEMA = vol.Schema({
+    DOMAIN: vol.Schema({
+        vol.Required("host"): cv.string,
+        vol.Optional("port_status", default=80): cv.positive_int,
+        vol.Optional("port_control", default=80): cv.positive_int,
+        vol.Optional("myid", default="default_id"): cv.string,
+        vol.Optional("mydevinfo", default="default_devinfo"): cv.string,
+        vol.Optional("myuseragent", default="HomeAssistant"): cv.string,
+        vol.Optional("myname", default="SonyReceiver"): cv.string,
+        vol.Optional("max_vol", default=20): cv.positive_int,
+        # Optionally provide alternative names mapping for inputs
+        vol.Optional("alternative", default={}): dict
+    })
+}, extra=vol.ALLOW_EXTRA)
 
-    def switch_input_to(self, target):
-        target = target.upper()
-        if target == "SAT":
-            target = "SAT/CATV"
-        if target == "SACD":
-            target = "SA-CD/CD"
-        if target == "FM":
-            target = "FM TUNER"
-        if target == "AM":
-            target = "AM TUNER"
-        if target == "NET":
-            target = "HOME NETWORK"
-        if target not in self.inputs:
-            return f"Can't switch to this source: {target}."
-        idx = self.inputs.index(target)
-        current = self.get_current_input()
-        if current not in self.inputs:
-            return f"Current input {current} not recognized."
-        cidx = self.inputs.index(current)
-        diff = idx - cidx
-        if diff < 0:
-            return self.send_command("STR_FunctionMinus", abs(diff))
-        else:
-            return self.send_command("STR_FunctionPlus", diff)
+def setup(hass, config):
+    """Set up the Sony STR-DN840 integration."""
+    conf = config[DOMAIN]
+    controller = SonySTRDN840Controller(
+        host=conf["host"],
+        port_status=conf.get("port_status", 80),
+        port_control=conf.get("port_control", 80),
+        myid=conf.get("myid", "default_id"),
+        mydevinfo=conf.get("mydevinfo", "default_devinfo"),
+        myuseragent=conf.get("myuseragent", "HomeAssistant"),
+        myname=conf.get("myname", "SonyReceiver"),
+        max_vol=conf.get("max_vol", 20),
+        alternative=conf.get("alternative", {})
+    )
+    hass.data[DOMAIN] = controller
 
-    def set_volume_to(self, volume):
-        vol = int(volume)
-        if vol > self.max_vol:
-            vol = self.max_vol
-        # Reset volume by lowering then raise to desired level
-        self.send_command("VolumeDown", self.max_vol * 2)
-        return self.send_command("VolumeUp", vol)
+    def handle_register(call):
+        result = controller.register()
+        _LOGGER.info("Register result: %s", result)
 
-    def register(self):
-        encodedid = urllib.parse.quote_plus(self.myid)
-        url = f'http://{self.host}:{self.port_status}/cers/register?name={self.myname}&registrationType=initial&deviceId={encodedid}'
-        headers = {
-            'X-CERS-DEVICE-ID': self.myid,
-            'X-CERS-DEVICE-INFO': self.mydevinfo,
-            'Connection': 'close',
-            'User-Agent': self.myuseragent,
-            'Host': f'{self.host}:{self.port_status}',
-            'Accept-Encoding': 'gzip'
-        }
-        try:
-            requests.get(url, headers=headers, timeout=5)
-            return "Registered"
-        except Exception as e:
-            return f"Registration failed: {e}"
+    def handle_cmd(call):
+        cmd = call.data.get("cmd")
+        repeat = call.data.get("repeat", 1)
+        result = controller.send_command(cmd, repeat)
+        _LOGGER.info("Command result: %s", result)
 
-    def change_power_state(self, action):
-        current_input = self.get_current_input()
-        is_powered = False if current_input == "BD" else True
-        if (action == "on" and not is_powered) or (action == "off" and is_powered):
-            return self.send_command("str_powermain", 1)
-        return "No change needed"
+    def handle_switch(call):
+        target = call.data.get("target")
+        result = controller.switch_input_to(target)
+        _LOGGER.info("Switch input result: %s", result)
+
+    def handle_set_volume(call):
+        volume = call.data.get("volume")
+        result = controller.set_volume_to(volume)
+        _LOGGER.info("Set volume result: %s", result)
+
+    def handle_power(call):
+        action = call.data.get("action")
+        result = controller.change_power_state(action)
+        _LOGGER.info("Change power state result: %s", result)
+
+    def handle_status(call):
+        status = controller.get_current_input()
+        hass.states.set(f"{DOMAIN}.input", status)
+
+    hass.services.register(DOMAIN, "register", handle_register)
+    hass.services.register(DOMAIN, "cmd", handle_cmd, schema=vol.Schema({
+        vol.Required("cmd"): cv.string,
+        vol.Optional("repeat", default=1): cv.positive_int
+    }))
+    hass.services.register(DOMAIN, "switch", handle_switch, schema=vol.Schema({
+        vol.Required("target"): cv.string
+    }))
+    hass.services.register(DOMAIN, "set_volume", handle_set_volume, schema=vol.Schema({
+        vol.Required("volume"): cv.positive_int
+    }))
+    hass.services.register(DOMAIN, "power", handle_power, schema=vol.Schema({
+        vol.Required("action"): vol.In(["on", "off"])
+    }))
+    hass.services.register(DOMAIN, "status", handle_status)
+
+    _LOGGER.info("Sony STR-DN840 integration setup complete")
+    return True
