@@ -3,6 +3,7 @@
   "name": "Sony STR-DN840 Controller",
   "version": "0.1.0",
   "documentation": "https://github.com/totalboss3/Sony-STR-DN840-hacs-integration",
+  "issue_tracker": "https://github.com/totalboss3/Sony-STR-DN840-hacs-integration/issues",
   "requirements": [
     "certifi==2019.3.9",
     "chardet==3.0.4",
@@ -11,6 +12,6 @@
     "requests==2.21.0",
     "urllib3==1.26.5"
   ],
-  "dependencies": [],
-  "codeowners": []
+  "dependencies": ["mqtt"],
+  "codeowners": ["@totalboss"]
 }
